@@ -4,8 +4,18 @@ import {
   TransactionCommon,
   TransactionCommonRaw,
 } from "../../types";
+import {
+  AnchorMode,
+  ChainID,
+  PostConditionMode,
+  TransactionVersion,
+} from "@stacks/transactions/src/constants";
+import { Authorization } from "@stacks/transactions/src/authorization";
+import { Payload } from "@stacks/transactions/src/payload";
+import { LengthPrefixedList } from "@stacks/transactions/src/types";
+import { UnsignedTokenTransferOptions } from "@stacks/transactions";
 
-type FamilyType = "blockstack";
+type FamilyType = "stacks";
 
 export type NetworkInfo = {
   family: FamilyType;
@@ -14,11 +24,18 @@ export type NetworkInfoRaw = {
   family: FamilyType;
 };
 
-export type Transaction = TransactionCommon & {
-  family: FamilyType;
-};
+export type Transaction = Omit<UnsignedTokenTransferOptions, "amount"> &
+  TransactionCommon & {
+    family: FamilyType;
+  };
+
 export type TransactionRaw = TransactionCommonRaw & {
   family: FamilyType;
+  nonce: number;
+  version: number;
+  chainId: number;
+  anchorMode: number;
+  postConditionMode: number;
 };
 
 export type BroadcastFnSignature = (arg0: BroadcastArg0) => Promise<Operation>;
