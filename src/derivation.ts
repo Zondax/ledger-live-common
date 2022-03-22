@@ -219,6 +219,9 @@ const modes = Object.freeze({
   filecoin: {
     overridesDerivation: "44'/461'/0'/0/<account>",
   },
+  stacks: {
+    overridesDerivation: "44'/5757'/5'/0/<account>",
+  },
   solanaMain: {
     isNonIterable: true,
     overridesDerivation: "44'/501'",
@@ -241,6 +244,7 @@ const legacyDerivations: Record<CryptoCurrencyIds, DerivationMode[]> = {
   stellar: ["sep5"],
   polkadot: ["polkadotbip44"],
   filecoin: ["filecoin"],
+  stacks: ["stacks"],
 };
 
 const legacyDerivationsPerFamily: Record<string, DerivationMode[]> = {
@@ -426,6 +430,7 @@ const disableBIP44 = {
 const seedIdentifierPath = {
   neo: ({ purpose, coinType }) => `${purpose}'/${coinType}'/0'/0/0`,
   filecoin: ({ purpose, coinType }) => `${purpose}'/${coinType}'/0'/0/0`,
+  stacks: ({ purpose, coinType }) => `${purpose}'/${coinType}'/0'/0/0`,
   solana: ({ purpose, coinType }) => `${purpose}'/${coinType}'`,
   _: ({ purpose, coinType }) => `${purpose}'/${coinType}'/0'`,
 };
