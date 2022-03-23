@@ -76,6 +76,7 @@
     "@polkadot/types-known": "7.8.1",
     "@solana/spl-token": "^0.1.8",
     "@solana/web3.js": "^1.32.0",
+    "@stacks/common": "^3.3.0",
     "@stacks/transactions": "^3.3.0",
     "@taquito/ledger-signer": "stablelib",
     "@taquito/taquito": "stablelib",

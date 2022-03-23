@@ -4,16 +4,7 @@ import {
   TransactionCommon,
   TransactionCommonRaw,
 } from "../../types";
-import {
-  AnchorMode,
-  ChainID,
-  PostConditionMode,
-  TransactionVersion,
-} from "@stacks/transactions/src/constants";
-import { Authorization } from "@stacks/transactions/src/authorization";
-import { Payload } from "@stacks/transactions/src/payload";
-import { LengthPrefixedList } from "@stacks/transactions/src/types";
-import { UnsignedTokenTransferOptions } from "@stacks/transactions";
+import { UnsignedTokenTransferOptions } from "@stacks/transactions/dist";
 
 type FamilyType = "stacks";
 

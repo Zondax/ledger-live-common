@@ -1,9 +1,33 @@
+import BlockstackApp from "@zondax/ledger-blockstack";
+import { c32address } from "c32check";
+import { getNonce } from "@stacks/transactions/dist/builders";
+import { txidFromData } from "@stacks/transactions/dist/utils";
+import { StacksNetwork } from "@stacks/network/src";
+import { StacksMainnet } from "@stacks/network";
+import { log } from "@ledgerhq/logs";
+import { intToBN } from "@stacks/common";
+import { FeeNotLoaded } from "@ledgerhq/errors";
+import {
+  AnchorMode,
+  UnsignedTokenTransferOptions,
+  estimateTransfer,
+  makeUnsignedSTXTokenTransfer,
+} from "@stacks/transactions/dist";
+import BN from "bn.js";
+import { BigNumber } from "bignumber.js";
+import { Observable } from "rxjs";
+import {
+  AddressVersion,
+  TransactionVersion,
+} from "@stacks/transactions/dist/constants";
+
 import { makeAccountBridgeReceive, makeSync } from "../../../bridge/jsHelpers";
 import {
   Account,
   AccountBridge,
   AccountLike,
   BroadcastFnSignature,
+  Operation,
   SignOperationEvent,
   SignOperationFnSignature,
   TransactionStatus,
@@ -12,12 +36,10 @@ import { Transaction } from "../types";
 import { getAccountShape, getTxToBroadcast } from "./utils/utils";
 import { broadcastTx } from "./utils/api";
 import { patchOperationWithHash } from "../../../operation";
-import { AnchorMode, UnsignedTokenTransferOptions } from "@stacks/transactions";
-import BN from "bn.js";
-import { BigNumber } from "bignumber.js";
 import { getAddress } from "../../filecoin/bridge/utils/utils";
-import { Observable } from "rxjs";
 import { withDevice } from "../../../hw/deviceAccess";
+import { close } from "../../../hw";
+import { getPath, isError } from "../utils";
 
 const receive = makeAccountBridgeReceive();
 
@@ -102,8 +124,46 @@ const prepareTransaction = async (
   a: Account,
   t: Transaction
 ): Promise<Transaction> => {
+  // log("debug", "[prepareTransaction] start fn");
+
   const { address } = getAddress(a);
   const { recipient } = t;
+
+  if (recipient && address) {
+    // log("debug", "[prepareTransaction] fetching estimated fees");
+
+    const options: UnsignedTokenTransferOptions = {
+      recipient,
+      anchorMode: t.anchorMode,
+      network: t.network,
+      publicKey: t.publicKey,
+      amount: t.amount.toFixed(),
+      fee: -1, // Set fee to avoid makeUnsignedSTXTokenTransfer to fetch fees internally
+      nonce: -1, // Set nonce to avoid makeUnsignedSTXTokenTransfer to fetch nonce internally
+    };
+
+    const tx = await makeUnsignedSTXTokenTransfer(options);
+    const network = StacksNetwork.fromNameOrNetwork(
+      t.network || new StacksMainnet()
+    );
+
+    const addressVersion =
+      network.version === TransactionVersion.Mainnet
+        ? AddressVersion.MainnetSingleSig
+        : AddressVersion.TestnetSingleSig;
+    const senderAddress = c32address(
+      addressVersion,
+      tx.auth.spendingCondition!.signer
+    );
+
+    const nonce = await getNonce(senderAddress, options.network);
+    const fee = await estimateTransfer(tx);
+
+    t.fee = fee;
+    t.nonce = nonce;
+  }
+
+  // log("debug", "[prepareTransaction] finish fn");
 
   return t;
 };
@@ -116,7 +176,106 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
   withDevice(deviceId)(
     (transport) =>
       new Observable((o) => {
-        async function main() {}
+        async function main() {
+          // log("debug", "[signOperation] start fn");
+
+          const { id: accountId, balance } = account;
+          const { address, derivationPath } = getAddress(account);
+
+          const {
+            recipient,
+            nonce,
+            fee,
+            useAllAmount,
+            anchorMode,
+            network,
+            publicKey,
+          } = transaction;
+          let { amount } = transaction;
+
+          if (!fee) {
+            log("debug", `signOperation missingData --> fee=${fee} `);
+            throw new FeeNotLoaded();
+          }
+
+          const blockstack = new BlockstackApp(transport);
+
+          try {
+            o.next({
+              type: "device-signature-requested",
+            });
+
+            const feeBN = new BigNumber(intToBN(fee, false).toString());
+            if (useAllAmount) amount = balance.minus(feeBN);
+
+            const options: UnsignedTokenTransferOptions = {
+              amount: transaction.amount.toFixed(),
+              recipient,
+              anchorMode,
+              network,
+              publicKey,
+              fee,
+              nonce,
+            };
+
+            const tx = await makeUnsignedSTXTokenTransfer(options);
+            const serializedTx = tx.serialize();
+
+            log(
+              "debug",
+              `[signOperation] serialized CBOR tx: [${serializedTx.toString(
+                "hex"
+              )}]`
+            );
+
+            // Sign by device
+            const result = await blockstack.sign(
+              getPath(derivationPath),
+              serializedTx
+            );
+            isError(result);
+
+            o.next({
+              type: "device-signature-granted",
+            });
+
+            const txHash = txidFromData(serializedTx);
+
+            // build signature on the correct format
+            const signature = `${result.signature_compact.toString("base64")}`;
+
+            const operation: Operation = {
+              id: `${accountId}-${txHash}-OUT`,
+              hash: txHash,
+              type: "OUT",
+              senders: [address],
+              recipients: [recipient],
+              accountId,
+              value: amount,
+              fee: feeBN,
+              blockHash: null,
+              blockHeight: null,
+              date: new Date(),
+              extra: {
+                nonce,
+                signatureType: 1,
+              },
+            };
+
+            o.next({
+              type: "signed",
+              signedOperation: {
+                operation,
+                signature,
+                expirationDate: null,
+              },
+            });
+          } finally {
+            close(transport, deviceId);
+
+            // log("debug", "[signOperation] finish fn");
+          }
+        }
 
         main().then(
           () => o.complete(),
