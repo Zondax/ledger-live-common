@@ -11,32 +11,32 @@ export interface EstimatedFeesResponse {
 }
 
 export interface TransactionsResponse {
-  txs: TransactionResponse[];
+  limit: number;
+  offset: number;
+  total: number;
+  results: TransactionResponse[];
 }
 
 export interface TransactionResponse {
-  amount: number;
-  to: string;
-  from: string;
-  status: string;
-  type: string;
-  hash: string;
-  timestamp: number;
-  height: number;
-  fee?: string;
+  tx_id: string;
+  tx_status: string;
+  tx_type: string;
+  fee_rate: string;
+  sender_address: string;
+  sponsored: boolean;
+  block_hash: string;
+  block_height: number;
+  tx_index: number;
 }
 
 export interface BalanceResponse {
-  locked_balance: string;
-  spendable_balance: string;
-  total_balance: string;
+  balance: string;
 }
 
 export interface NetworkStatusResponse {
-  current_block_identifier: BlockIdentifier;
-  genesis_block_identifier: BlockIdentifier;
-  oldest_block_identifier?: BlockIdentifier;
-  current_block_timestamp: number;
+  server_version: string;
+  status: string;
+  chain_tip: BlockIdentifier;
 }
 
 export interface BroadcastTransactionRequest {
@@ -59,6 +59,6 @@ export interface BroadcastTransactionResponse {
 }
 
 interface BlockIdentifier {
-  index: number;
-  hash: string;
+  block_height: number;
+  block_hash: string;
 }

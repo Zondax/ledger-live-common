@@ -58,7 +58,7 @@ const send = async <T>(path: string, data: Record<string, any>) => {
 };
 
 export const fetchBalances = async (addr: string): Promise<BalanceResponse> => {
-  const data = await fetch<BalanceResponse>(`/addresses/${addr}/balance`);
+  const data = await fetch<BalanceResponse>(`/extended/v1/address/${addr}/stx`);
   return data; // TODO Validate if the response fits this interface
 };
 
@@ -70,7 +70,7 @@ export const fetchEstimatedFees = async (
 };
 
 export const fetchBlockHeight = async (): Promise<NetworkStatusResponse> => {
-  const data = await fetch<NetworkStatusResponse>("/network/status");
+  const data = await fetch<NetworkStatusResponse>("/extended/v1/status");
   return data as NetworkStatusResponse; // TODO Validate if the response fits this interface
 };
 
@@ -78,9 +78,9 @@ export const fetchTxs = async (
   addr: string
 ): Promise<TransactionResponse[]> => {
   const response = await fetch<TransactionsResponse>(
-    `/addresses/${addr}/transactions`
+    `/extended/v1/address/${addr}/transactions`
   );
-  return response.txs; // TODO Validate if the response fits this interface
+  return response.results; // TODO Validate if the response fits this interface
 };
 
 export const broadcastTx = async (
