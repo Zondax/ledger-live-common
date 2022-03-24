@@ -65,8 +65,11 @@ export const fetchBalances = async (addr: string): Promise<BalanceResponse> => {
 export const fetchEstimatedFees = async (
   request: EstimatedFeesRequest
 ): Promise<EstimatedFeesResponse> => {
-  const data = await send<EstimatedFeesResponse>(`/fees/estimate`, request);
-  return data; // TODO Validate if the response fits this interface
+  const feeRate = await send<EstimatedFeesResponse>(
+    `/v2/fees/transfer`,
+    request
+  );
+  return feeRate; // TODO Validate if the response fits this interface
 };
 
 export const fetchBlockHeight = async (): Promise<NetworkStatusResponse> => {
@@ -78,7 +81,7 @@ export const fetchTxs = async (
   addr: string
 ): Promise<TransactionResponse[]> => {
   const response = await fetch<TransactionsResponse>(
-    `/extended/v1/address/${addr}/transactions`
+    `/extended/v1/address/${addr}/transactions_with_transfers`
   );
   return response.results; // TODO Validate if the response fits this interface
 };

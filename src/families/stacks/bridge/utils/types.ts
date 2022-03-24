@@ -3,12 +3,7 @@ export interface EstimatedFeesRequest {
   from: string;
 }
 
-export interface EstimatedFeesResponse {
-  gas_limit: number;
-  gas_fee_cap: string;
-  gas_premium: string;
-  nonce: number;
-}
+export type EstimatedFeesResponse = number;
 
 export interface TransactionsResponse {
   limit: number;
@@ -18,15 +13,23 @@ export interface TransactionsResponse {
 }
 
 export interface TransactionResponse {
-  tx_id: string;
-  tx_status: string;
-  tx_type: string;
-  fee_rate: string;
-  sender_address: string;
-  sponsored: boolean;
-  block_hash: string;
-  block_height: number;
-  tx_index: number;
+  tx: {
+    tx_id: string;
+    tx_status: string;
+    tx_type: string;
+    fee_rate: string;
+    sender_address: string;
+    sponsored: boolean;
+    block_hash: string;
+    block_height: number;
+    tx_index: number;
+    burn_block_time: number;
+  };
+  stx_transfers: {
+    amount: string;
+    sender: string;
+    recipient: string;
+  }[];
 }
 
 export interface BalanceResponse {

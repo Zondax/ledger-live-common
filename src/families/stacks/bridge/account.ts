@@ -2,8 +2,7 @@ import BlockstackApp from "@zondax/ledger-blockstack";
 import { c32address } from "c32check";
 import { getNonce } from "@stacks/transactions/dist/builders";
 import { txidFromData } from "@stacks/transactions/dist/utils";
-import { StacksNetwork } from "@stacks/network/src";
-import { StacksMainnet } from "@stacks/network";
+import { StacksNetwork, StacksMainnet } from "@stacks/network/dist";
 import { log } from "@ledgerhq/logs";
 import { intToBN } from "@stacks/common";
 import { FeeNotLoaded } from "@ledgerhq/errors";
@@ -40,6 +39,8 @@ import { getAddress } from "../../filecoin/bridge/utils/utils";
 import { withDevice } from "../../../hw/deviceAccess";
 import { close } from "../../../hw";
 import { getPath, isError } from "../utils";
+import { getMainAccount } from "../../../account";
+import { fetchBalances } from "./utils/api";
 
 const receive = makeAccountBridgeReceive();
 
@@ -116,8 +117,11 @@ const estimateMaxSpendable = async ({
   parentAccount?: Account | null | undefined;
   transaction?: Transaction | null | undefined;
 }): Promise<BigNumber> => {
-  const balance = new BigNumber(0);
-  return balance;
+  const a = getMainAccount(account, parentAccount);
+  const { address } = getAddress(a);
+
+  const balance = await fetchBalances(address);
+  return new BigNumber(balance.balance); // FIXME Stacks - minus the tx fee from this
 };
 
 const prepareTransaction = async (

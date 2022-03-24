@@ -220,7 +220,7 @@ const modes = Object.freeze({
     overridesDerivation: "44'/461'/0'/0/<account>",
   },
   stacks: {
-    overridesDerivation: "44'/5757'/5'/0/<account>",
+    overridesDerivation: "44'/5757'/0'/0/<account>",
   },
   solanaMain: {
     isNonIterable: true,
