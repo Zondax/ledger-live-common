@@ -80,7 +80,7 @@ export const mapTxToOps =
   };
 
 export const getAccountShape: GetAccountShape = async (info) => {
-  const { address, currency } = info;
+  const { address, currency, rest } = info;
 
   const accountId = encodeAccountId({
     type: "js",
@@ -96,6 +96,7 @@ export const getAccountShape: GetAccountShape = async (info) => {
 
   const result = {
     id: accountId,
+    xpub: rest["publicKey"], // This field come from hw-getAddress result...
     balance: new BigNumber(balance.balance),
     spendableBalance: new BigNumber(balance.balance),
     operations: flatMap(rawTxs, mapTxToOps(accountId, info)),
