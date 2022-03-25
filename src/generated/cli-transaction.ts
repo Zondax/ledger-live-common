@@ -20,6 +20,8 @@ import ripple from "../families/ripple/cli-transaction";
 
 import solana from "../families/solana/cli-transaction";
 
+import stacks from "../families/stacks/cli-transaction";
+
 import stellar from "../families/stellar/cli-transaction";
 
 import tezos from "../families/tezos/cli-transaction";
@@ -39,6 +41,7 @@ export default {
   polkadot,
   ripple,
   solana,
+  stacks,
   stellar,
   tezos,
   tron,
