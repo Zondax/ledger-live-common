@@ -4,21 +4,25 @@ import { getNonce } from "@stacks/transactions/dist/builders";
 import { txidFromData } from "@stacks/transactions/dist/utils";
 import { StacksNetwork, StacksMainnet } from "@stacks/network/dist";
 import { log } from "@ledgerhq/logs";
-import { intToBN } from "@stacks/common";
-import { FeeNotLoaded } from "@ledgerhq/errors";
+import {
+  AmountRequired,
+  FeeNotLoaded,
+  InvalidAddress,
+  NotEnoughBalance,
+  RecipientRequired,
+} from "@ledgerhq/errors";
 import {
   AnchorMode,
   UnsignedTokenTransferOptions,
   estimateTransfer,
   makeUnsignedSTXTokenTransfer,
 } from "@stacks/transactions/dist";
-import BN from "bn.js";
-import { BigNumber } from "bignumber.js";
-import { Observable } from "rxjs";
 import {
   AddressVersion,
   TransactionVersion,
 } from "@stacks/transactions/dist/constants";
+import { BigNumber } from "bignumber.js";
+import { Observable } from "rxjs";
 
 import { makeAccountBridgeReceive, makeSync } from "../../../bridge/jsHelpers";
 import {
@@ -46,19 +50,14 @@ const receive = makeAccountBridgeReceive();
 
 const createTransaction = (): Transaction => {
   // log("debug", "[createTransaction] creating base tx");
-  const options: UnsignedTokenTransferOptions = {
-    anchorMode: AnchorMode.Any,
-    recipient: "",
-    publicKey: "",
-    amount: new BN(0),
-  };
 
   return {
-    ...options,
     family: "stacks",
-    useAllAmount: false,
     recipient: "",
     amount: new BigNumber(0),
+    network: "mainnet",
+    anchorMode: AnchorMode.Any,
+    useAllAmount: false,
   };
 };
 
@@ -91,13 +90,29 @@ const getTransactionStatus = async (
   a: Account,
   t: Transaction
 ): Promise<TransactionStatus> => {
+  // log("debug", "[getTransactionStatus] start fn");
+
   const errors: TransactionStatus["errors"] = {};
   const warnings: TransactionStatus["warnings"] = {};
 
-  const { amount } = t;
+  const { balance } = a;
+  const { recipient, useAllAmount, fee } = t;
+  let { amount } = t;
 
-  const estimatedFees = new BigNumber(0);
-  const totalSpent = new BigNumber(0);
+  if (!recipient) errors.recipient = new RecipientRequired();
+  else if (!fee || fee.eq(0)) errors.gas = new FeeNotLoaded();
+
+  // FIXME Stacks - validate addresses if it is possible
+
+  const estimatedFees = fee || new BigNumber(0);
+
+  const totalSpent = useAllAmount ? balance : amount.plus(estimatedFees);
+  amount = useAllAmount ? balance.minus(estimatedFees) : amount;
+
+  if (amount.lte(0)) errors.amount = new AmountRequired();
+  if (totalSpent.gt(a.spendableBalance)) errors.amount = new NotEnoughBalance();
+
+  // log("debug", "[getTransactionStatus] finish fn");
 
   return {
     errors,
@@ -130,17 +145,17 @@ const prepareTransaction = async (
 ): Promise<Transaction> => {
   // log("debug", "[prepareTransaction] start fn");
 
-  const { address } = getAddress(a);
+  const { xpub } = a;
   const { recipient } = t;
 
-  if (recipient && address) {
+  if (recipient && xpub) {
     // log("debug", "[prepareTransaction] fetching estimated fees");
 
     const options: UnsignedTokenTransferOptions = {
       recipient,
       anchorMode: t.anchorMode,
       network: t.network,
-      publicKey: t.publicKey,
+      publicKey: xpub,
       amount: t.amount.toFixed(),
       fee: -1, // Set fee to avoid makeUnsignedSTXTokenTransfer to fetch fees internally
       nonce: -1, // Set nonce to avoid makeUnsignedSTXTokenTransfer to fetch nonce internally
@@ -163,8 +178,8 @@ const prepareTransaction = async (
     const nonce = await getNonce(senderAddress, options.network);
     const fee = await estimateTransfer(tx);
 
-    t.fee = fee;
-    t.nonce = nonce;
+    t.fee = new BigNumber(fee.toString());
+    t.nonce = new BigNumber(nonce.toString());
   }
 
   // log("debug", "[prepareTransaction] finish fn");
@@ -183,24 +198,24 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
         async function main() {
           // log("debug", "[signOperation] start fn");
 
-          const { id: accountId, balance } = account;
+          const { id: accountId, balance, xpub } = account;
           const { address, derivationPath } = getAddress(account);
 
-          const {
-            recipient,
-            nonce,
-            fee,
-            useAllAmount,
-            anchorMode,
-            network,
-            publicKey,
-          } = transaction;
-          let { amount } = transaction;
+          const { recipient, fee, useAllAmount, anchorMode, network } =
+            transaction;
+          let { amount, nonce } = transaction;
+
+          if (!xpub) {
+            log("debug", `signOperation missingData --> xpub=${xpub} `);
+            throw new InvalidAddress();
+          }
 
           if (!fee) {
             log("debug", `signOperation missingData --> fee=${fee} `);
             throw new FeeNotLoaded();
           }
+
+          if (!nonce) nonce = new BigNumber(0);
 
           const blockstack = new BlockstackApp(transport);
 
@@ -209,27 +224,27 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
               type: "device-signature-requested",
             });
 
-            const feeBN = new BigNumber(intToBN(fee, false).toString());
-            if (useAllAmount) amount = balance.minus(feeBN);
+            if (useAllAmount) amount = balance.minus(fee);
 
             const options: UnsignedTokenTransferOptions = {
               amount: transaction.amount.toFixed(),
               recipient,
               anchorMode,
               network,
-              publicKey,
-              fee,
-              nonce,
+              publicKey: xpub,
+              fee: fee.toString(),
+              nonce: nonce.toString(),
             };
 
             const tx = await makeUnsignedSTXTokenTransfer(options);
+
+            log("debug", `[signOperation] unsigned tx: [${tx}]`);
+
             const serializedTx = tx.serialize();
 
             log(
               "debug",
-              `[signOperation] serialized CBOR tx: [${serializedTx.toString(
-                "hex"
-              )}]`
+              `[signOperation] serialized tx: [${serializedTx.toString("hex")}]`
             );
 
             // Sign by device
@@ -256,7 +271,7 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
               recipients: [recipient],
               accountId,
               value: amount,
-              fee: feeBN,
+              fee,
               blockHash: null,
               blockHeight: null,
               date: new Date(),
