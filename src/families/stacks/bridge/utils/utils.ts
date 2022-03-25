@@ -36,7 +36,7 @@ export const mapTxToOps =
     const { tx_id, fee_rate, block_height, burn_block_time } = tx.tx;
     const ops: Operation[] = [];
     const date = new Date(burn_block_time * 1000);
-    const value = parseCurrencyUnit(getUnit(), amount.toString());
+    const value = new BigNumber(amount || 0);
 
     const isSending = address === sender;
     const isReceiving = address === recipient;
