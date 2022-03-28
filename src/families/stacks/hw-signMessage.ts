@@ -8,7 +8,7 @@ const resolver: Resolver = async (
   transport,
   { path, message }
 ): Promise<Result> => {
-  log("debug", "start signMessage process");
+  //log("debug", "start signMessage process");
 
   const blockstack = new BlockstackApp(transport);
 
@@ -19,11 +19,11 @@ const resolver: Resolver = async (
 
   return {
     rsv: {
-      r: r.signature_compact.slice(0, 32).toString("hex"),
-      s: r.signature_compact.slice(32, 64).toString("hex"),
-      v: parseInt(r.signature_compact.slice(64, 65).toString("hex"), 16),
+      r: r.signatureCompact.slice(0, 32).toString("hex"),
+      s: r.signatureCompact.slice(32, 64).toString("hex"),
+      v: parseInt(r.signatureCompact.slice(64, 65).toString("hex"), 16),
     },
-    signature: `0x${r.signature_compact.toString("hex")}`,
+    signature: `0x${r.signatureVRS.toString("hex")}`,
   };
 };
 

@@ -42,24 +42,9 @@ export interface NetworkStatusResponse {
   chain_tip: BlockIdentifier;
 }
 
-export interface BroadcastTransactionRequest {
-  message: {
-    version: number;
-    to: string;
-    from: string;
-    nonce: number;
-    value: string;
-    params: string;
-  };
-  signature: {
-    type: number;
-    data: string;
-  };
-}
+export type BroadcastTransactionRequest = Buffer;
 
-export interface BroadcastTransactionResponse {
-  hash: string;
-}
+export type BroadcastTransactionResponse = string;
 
 interface BlockIdentifier {
   block_height: number;

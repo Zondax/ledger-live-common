@@ -57,6 +57,25 @@ const send = async <T>(path: string, data: Record<string, any>) => {
   return responseData;
 };
 
+const sendRaw = async <T>(path: string, data: Buffer) => {
+  const url = getStacksURL(path);
+
+  const opts: AxiosRequestConfig = {
+    method: "POST",
+    url,
+    data,
+    headers: { "Content-Type": "application/octet-stream" },
+  };
+
+  const rawResponse = await network(opts);
+
+  // We force data to this way as network func is not using generics. Changing that func will generate errors in other implementations
+  const { data: responseData } = rawResponse as AxiosResponse<T>;
+
+  log("http", url);
+  return responseData;
+};
+
 export const fetchBalances = async (addr: string): Promise<BalanceResponse> => {
   const data = await fetch<BalanceResponse>(`/extended/v1/address/${addr}/stx`);
   return data; // TODO Validate if the response fits this interface
@@ -89,8 +108,8 @@ export const fetchTxs = async (
 export const broadcastTx = async (
   message: BroadcastTransactionRequest
 ): Promise<BroadcastTransactionResponse> => {
-  const response = await send<BroadcastTransactionResponse>(
-    `/transaction/broadcast`,
+  const response = await sendRaw<BroadcastTransactionResponse>(
+    `/v2/transactions`,
     message
   );
   return response; // TODO Validate if the response fits this interface

@@ -8,6 +8,7 @@ import {
   AmountRequired,
   FeeNotLoaded,
   InvalidAddress,
+  InvalidAddressBecauseDestinationIsAlsoSource,
   NotEnoughBalance,
   RecipientRequired,
 } from "@ledgerhq/errors";
@@ -38,13 +39,13 @@ import {
 import { Transaction } from "../types";
 import { getAccountShape, getTxToBroadcast } from "./utils/utils";
 import { broadcastTx } from "./utils/api";
-import { patchOperationWithHash } from "../../../operation";
 import { getAddress } from "../../filecoin/bridge/utils/utils";
 import { withDevice } from "../../../hw/deviceAccess";
 import { close } from "../../../hw";
 import { getPath, isError } from "../utils";
 import { getMainAccount } from "../../../account";
 import { fetchBalances } from "./utils/api";
+import { patchOperationWithHash } from "../../../operation";
 
 const receive = makeAccountBridgeReceive();
 
@@ -74,11 +75,9 @@ const broadcast: BroadcastFnSignature = async ({
 }) => {
   // log("debug", "[broadcast] start fn");
 
-  const tx = getTxToBroadcast(operation, signature);
+  const tx = await getTxToBroadcast(operation, signature);
 
-  const resp = await broadcastTx(tx);
-  const { hash } = resp;
-
+  const hash = await broadcastTx(tx);
   const result = patchOperationWithHash(operation, hash);
 
   // log("debug", "[broadcast] finish fn");
@@ -96,10 +95,13 @@ const getTransactionStatus = async (
   const warnings: TransactionStatus["warnings"] = {};
 
   const { balance } = a;
+  const { address } = getAddress(a);
   const { recipient, useAllAmount, fee } = t;
   let { amount } = t;
 
   if (!recipient) errors.recipient = new RecipientRequired();
+  else if (address === recipient)
+    errors.recipient = new InvalidAddressBecauseDestinationIsAlsoSource();
   else if (!fee || fee.eq(0)) errors.gas = new FeeNotLoaded();
 
   // FIXME Stacks - validate addresses if it is possible
@@ -154,6 +156,7 @@ const prepareTransaction = async (
     const options: UnsignedTokenTransferOptions = {
       recipient,
       anchorMode: t.anchorMode,
+      memo: t.memo,
       network: t.network,
       publicKey: xpub,
       amount: t.amount.toFixed(),
@@ -201,7 +204,7 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
           const { id: accountId, balance, xpub } = account;
           const { address, derivationPath } = getAddress(account);
 
-          const { recipient, fee, useAllAmount, anchorMode, network } =
+          const { recipient, fee, useAllAmount, anchorMode, network, memo } =
             transaction;
           let { amount, nonce } = transaction;
 
@@ -227,10 +230,11 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
             if (useAllAmount) amount = balance.minus(fee);
 
             const options: UnsignedTokenTransferOptions = {
-              amount: transaction.amount.toFixed(),
+              amount: amount.toFixed(),
               recipient,
               anchorMode,
               network,
+              memo,
               publicKey: xpub,
               fee: fee.toString(),
               nonce: nonce.toString(),
@@ -261,7 +265,7 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
             const txHash = txidFromData(serializedTx);
 
             // build signature on the correct format
-            const signature = `${result.signature_compact.toString("base64")}`;
+            const signature = `${result.signatureVRS.toString("hex")}`;
 
             const operation: Operation = {
               id: `${accountId}-${txHash}-OUT`,
@@ -277,6 +281,9 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
               date: new Date(),
               extra: {
                 nonce,
+                xpub,
+                network,
+                anchorMode,
                 signatureType: 1,
               },
             };

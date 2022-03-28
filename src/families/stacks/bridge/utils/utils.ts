@@ -12,15 +12,41 @@ import {
   fetchTxs,
 } from "../../bridge/utils/api";
 import { TransactionResponse } from "./types";
+import { getCryptoCurrencyById } from "../../../../currencies";
 import {
-  getCryptoCurrencyById,
-  parseCurrencyUnit,
-} from "../../../../currencies";
+  makeUnsignedSTXTokenTransfer,
+  UnsignedTokenTransferOptions,
+  createMessageSignature,
+} from "@stacks/transactions/dist";
 
-export const getTxToBroadcast = (
+export const getTxToBroadcast = async (
   operation: Operation,
   signature: string
-): any => {};
+): Promise<Buffer> => {
+  const {
+    value,
+    recipients,
+    fee,
+    extra: { xpub, nonce, anchorMode, network },
+  } = operation;
+
+  const options: UnsignedTokenTransferOptions = {
+    amount: value.toFixed(),
+    recipient: recipients[0],
+    anchorMode,
+    network,
+    publicKey: xpub,
+    fee: fee.toFixed(),
+    nonce: nonce.toFixed(),
+  };
+
+  const tx = await makeUnsignedSTXTokenTransfer(options);
+
+  // @ts-ignore gjhjh
+  tx.auth.spendingCondition.signature = createMessageSignature(signature);
+
+  return tx.serialize();
+};
 
 export const getUnit = () => getCryptoCurrencyById("stacks").units[0];
 
@@ -80,7 +106,7 @@ export const mapTxToOps =
   };
 
 export const getAccountShape: GetAccountShape = async (info) => {
-  const { address, currency, rest } = info;
+  const { address, currency, rest = {} } = info;
 
   const accountId = encodeAccountId({
     type: "js",
