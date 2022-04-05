@@ -18,6 +18,8 @@ import ripple from "../families/ripple/test-dataset";
 
 import solana from "../families/solana/test-dataset";
 
+import stacks from "../families/stacks/test-dataset";
+
 import stellar from "../families/stellar/test-dataset";
 
 import tezos from "../families/tezos/test-dataset";
@@ -36,6 +38,7 @@ export default {
   polkadot,
   ripple,
   solana,
+  stacks,
   stellar,
   tezos,
   tron,
