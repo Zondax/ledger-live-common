@@ -185,7 +185,12 @@ const broadcast: BroadcastFnSignature = async ({
   const resp = await broadcastTx(tx);
   const { hash } = resp;
 
+  log("debug", `id prev --> ${operation.id}`);
+  log("debug", `hash --> ${hash}`);
+
   const result = patchOperationWithHash(operation, hash);
+
+  log("debug", `id new --> ${result.id}`);
 
   // log("debug", "[broadcast] finish fn");
 
@@ -290,6 +295,9 @@ const signOperation: SignOperationFnSignature<Transaction> = ({
                 signatureType: 1,
               },
             };
+
+            log("debug", `id prev --> ${operation.id}`);
+            log("debug", `hash --> ${txHash}`);
 
             o.next({
               type: "signed",

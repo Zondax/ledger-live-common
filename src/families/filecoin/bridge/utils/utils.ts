@@ -13,6 +13,7 @@ import { fetchBalances, fetchBlockHeight, fetchTxs } from "./api";
 import { encodeAccountId } from "../../../../account";
 import { encodeOperationId } from "../../../../operation";
 import flatMap from "lodash/flatMap";
+import { log } from "@ledgerhq/logs";
 
 type TxsById = {
   [id: string]: {
@@ -138,15 +139,17 @@ export const getTxToBroadcast = (
 };
 
 export const getAccountShape: GetAccountShape = async (info) => {
-  const { address, currency } = info;
+  const { address, currency, derivationMode } = info;
 
   const accountId = encodeAccountId({
     type: "js",
     version: "2",
     currencyId: currency.id,
     xpubOrAddress: address,
-    derivationMode: "",
+    derivationMode,
   });
+
+  log("debug", `account id --> ${accountId}`);
 
   const blockHeight = await fetchBlockHeight();
   const balance = await fetchBalances(address);
