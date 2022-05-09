@@ -483,9 +483,10 @@ export async function runOnAccount<T extends Transaction>({
       const timedOut =
         now() - testBefore >
         (mutation.testTimeout || spec.testTimeout || 30 * 1000);
-      const operation = account.operations.find(
-        (o) => o.id === optimisticOperation.id
-      );
+      const operation = account.operations.find((o) => {
+          log("debug", `tx id: ${o.id} - optimistic id: ${optimisticOperation.id}`);
+          return o.id === optimisticOperation.id;
+        });
 
       if (timedOut && !operation) {
         throw new Error(
